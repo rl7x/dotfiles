@@ -1,0 +1,85 @@
+# Homebrew for interactive non-login shells, too.
+if [[ -z "$HOMEBREW_PREFIX" ]]; then
+  if [[ -x /opt/homebrew/bin/brew ]]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+  elif [[ -x /usr/local/bin/brew ]]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+  fi
+fi
+
+typeset -U path fpath
+export PNPM_HOME="${PNPM_HOME:-$HOME/Library/pnpm}"
+export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+[[ -r "$HOME/.cargo/env" ]] && source "$HOME/.cargo/env"
+path=("$HOME/.local/bin" "$BUN_INSTALL/bin" "$PNPM_HOME" $path)
+export PATH
+alias nv=nvim
+alias python=python3
+alias pip='python3 -m pip'
+# Optional computer-specific PATHs and aliases, never committed.
+[[ -r "$HOME/.zshrc.local" ]] && source "$HOME/.zshrc.local"
+
+# Oh My Zsh owns completion initialization. Load nvm only when requested;
+# --no-use preserves the existing ~/.local/bin/node default.
+export ZSH="${ZSH:-$HOME/.oh-my-zsh}"
+ZSH_THEME=""
+DISABLE_UPDATE_PROMPT=true
+export NVM_LAZY_LOAD=true
+export NVM_NO_USE=true
+plugins=(git command-not-found copyfile)
+[[ -s "$HOME/.nvm/nvm.sh" ]] && plugins+=(zsh-nvm)
+if [[ -r "$ZSH/oh-my-zsh.sh" ]]; then
+  source "$ZSH/oh-my-zsh.sh"
+else
+  autoload -Uz compinit && compinit
+fi
+
+# Searchable history, bounded on disk. Original history is backed up.
+HISTFILE="$HOME/.zsh_history"
+HISTSIZE=200000
+SAVEHIST=100000
+unset HISTFILESIZE HISTTIMEFORMAT
+unsetopt SHARE_HISTORY
+setopt INC_APPEND_HISTORY EXTENDED_HISTORY HIST_FIND_NO_DUPS HIST_EXPIRE_DUPS_FIRST
+
+# One fzf integration, using the Homebrew binary rather than the old ~/.fzf checkout.
+if (( $+commands[fzf] )); then
+  export FZF_DEFAULT_OPTS='--height=40% --layout=reverse --border --color=dark'
+  eval "$(fzf --zsh)"
+fi
+[[ -r "$BUN_INSTALL/_bun" ]] && source "$BUN_INSTALL/_bun"
+
+if (( $+commands[eza] )); then
+  alias ll='eza -lh --group-directories-first'
+  alias la='eza -lah --group-directories-first'
+  alias lt='eza --tree --level=2 --group-directories-first'
+fi
+(( $+commands[zoxide] )) && eval "$(zoxide init zsh)"
+
+# Readable fallback if Starship is unavailable.
+PROMPT='%F{blue}%~%f %(?.%F{green}.%F{red})>%f '
+(( $+commands[starship] )) && eval "$(starship init zsh)"
+
+# Searchable Tab completion; install with: brew install fzf-tab
+# This must follow compinit/fzf, and precede autosuggestions/highlighting.
+if [[ -r "${HOMEBREW_PREFIX:-/opt/homebrew}/opt/fzf-tab/share/fzf-tab/fzf-tab.zsh" ]] && (( $+commands[fzf] )); then
+  zstyle ':completion:*' menu no
+  zstyle ':completion:*:descriptions' format '[%d]'
+  zstyle ':fzf-tab:*' fzf-flags --height=40% --layout=reverse --border --color=dark
+  source "${HOMEBREW_PREFIX:-/opt/homebrew}/opt/fzf-tab/share/fzf-tab/fzf-tab.zsh"
+fi
+
+# Prefer familiar history; suggest available completions when history has no match.
+ZSH_AUTOSUGGEST_STRATEGY=(history completion)
+ZSH_AUTOSUGGEST_USE_ASYNC=true
+ZSH_AUTOSUGGEST_BUFFER_MAX_SIZE=1000
+bindkey '^[f' emacs-forward-word
+if [[ -r "$ZSH/custom/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh" ]]; then
+  source "$ZSH/custom/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh"
+fi
+
+# Must follow completion, widgets, and other interactive integrations.
+if [[ -r "$ZSH/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]]; then
+  source "$ZSH/custom/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
+  ZSH_HIGHLIGHT_STYLES[globbing]='none'
+fi

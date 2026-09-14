@@ -1,0 +1,6 @@
+brew "starship"
+brew "zoxide"
+brew "bat"
+brew "eza"
+brew "fzf"
+brew "fzf-tab"
